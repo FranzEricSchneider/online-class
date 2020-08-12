@@ -292,8 +292,11 @@ df_q2 %>%
     more strongly without them being better measurements, that’s a
     source of error. It seems like it would just lead to higher than
     expected randomness.
-
-![](c02-michelson-assignment_files/figure-gfm/q4-task-1.png)<!-- -->
+  - Other than this reliance on what appears to be a faulty proxy for
+    quality, I don’t see any patterns jumping out that would lead to the
+    poor measurement. It seems like there was some systematic error that
+    bumped his measurement too high, as the whole cloud of measurements
+    appears to be centered \~150 km/s off.
 
 ## Bibliography
 

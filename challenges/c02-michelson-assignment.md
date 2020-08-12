@@ -293,6 +293,8 @@ df_q2 %>%
     source of error. It seems like it would just lead to higher than
     expected randomness.
 
+![](c02-michelson-assignment_files/figure-gfm/q4-task-1.png)<!-- -->
+
 ## Bibliography
 
   - \[1\] Michelson, [Experimental Determination of the Velocity of

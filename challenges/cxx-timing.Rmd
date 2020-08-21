@@ -1,0 +1,51 @@
+---
+title: "Timing Data"
+author: "Eric"
+date: 2020-08-20
+output:
+  pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+# Libraries
+library(tidyverse)
+```
+
+To make time_modes.csv I took data from 3 full log files on 021 (ABBA, ~31G each)
+```{r read-csv, message=FALSE, warning=FALSE}
+timing <- read.csv("~/Desktop/time_modes.csv") %>%
+  group_by(mode) %>%
+  mutate(appearances = n()) %>%
+  ungroup %>%
+  arrange(-appearances) %>%
+  mutate(rank = dense_rank(-appearances))
+timing %>% glimpse
+```
+
+\pagebreak
+Here is what the mixture density looks like, very multi-modal.
+```{r mix, message=FALSE, warning=FALSE}
+timing %>%
+  ggplot +
+  geom_density(aes(x = time_s))
+```
+
+\pagebreak
+Here are modes with over 100 observations, you can see how spread they are as well as how a few overlap. Remember that since densities integrate to 1 the height just means that it's a very narrow density, it doesn't indicate the number of samples.
+```{r show-modes, message=FALSE, warning=FALSE}
+timing %>%
+  filter(appearances > 100) %>%
+  ggplot +
+  geom_density(aes(x = time_s)) +
+  geom_density(aes(x = time_s, color = mode))
+```
+
+\pagebreak
+Here we can see the shape of the density for the top 12 modes  (note that X and Y scales are both free in order to better view the shape). I would say 9/12 are approximately normal.
+```{r show-modes-faceted, message=FALSE, warning=FALSE}
+timing %>%
+  filter(rank <= 12) %>%
+  ggplot +
+  geom_density(aes(x = time_s, color = mode)) +
+  facet_wrap(~ mode + appearances, scales = "free")
+```

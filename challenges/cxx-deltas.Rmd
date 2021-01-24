@@ -1,0 +1,156 @@
+---
+title: "Joint Deltas During Pick"
+author: "Eric"
+date: 2020-10-30
+output:
+  pdf_document
+---
+
+```{r message=FALSE, warning=FALSE}
+# Libraries
+library(tidyverse)
+```
+
+To make joint_deltas.csv I took a whole bunch of data 062 (ava), 125 (asimo), 108 (crow), 102 (voltron), 303 (baymax-abba), 302 (abba), 061 (abba), and 116 (abba).
+```{r read-csv, message=FALSE, warning=FALSE}
+max_deltas <- read.csv("~/Desktop/SET-322/joint_deltas.csv") %>%
+  mutate(max_delta = pmax(abs(delta0),
+                          abs(delta1),
+                          abs(delta2),
+                          abs(delta3),
+                          abs(delta4),
+                          abs(delta5))) %>%
+  mutate(pair = paste(str_remove(str_sub(start, start = 8), "rasp"),
+                      str_remove(str_sub(end, start = 8), "rasp"),
+                      sep = ":"))
+max_deltas %>% glimpse
+deltas <- max_deltas %>%
+  pivot_longer(
+    cols = starts_with("delta"),
+    values_to = "delta",
+  )
+```
+
+These are the projects and transitions being evaluated, check out the sample counts. Note that the "Suction" has been stripped off the waypoint names and the "rasp" has been removed for more compact plotting. So G0 and PreG1 were originally SuctionGrasp0 and SuctionPreGrasp1.
+```{r view-unique, message=FALSE, warning=FALSE}
+max_deltas %>%
+  group_by(project) %>%
+  summarize(data_points = n())
+max_deltas %>%
+  group_by(pair) %>%
+  summarize(data_points = n())
+```
+
+```{r set-themes, message=FALSE, warning=FALSE}
+# Don't put ticks on the Y axis, it gets cluttered
+cdf_theme <- function() {
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+  )
+}
+# Consistent CDF ylabel
+ylabel <- labs(y = "Fraction of Data (0-1, CDF)")
+# Set this when the x axis is tight
+tight_x = scale_x_continuous(breaks = waiver(), n.breaks = 3)
+# Define a rectangle around currently-detected transitions
+rectangle_current <- function(df) {
+  return(geom_rect(
+    data = subset(df, pair %in% c("G1:PostG")), 
+    fill = NA,
+    colour = "red",
+    xmin = -Inf, xmax = Inf,
+    ymin = -Inf, ymax = Inf)
+  )
+}
+```
+
+\pagebreak
+First take a look at how the joint values are distributed across the different joints. **Note that the x axes are different**, to get a better view of the shapes and maximums. delta5 (last wrist axis) has some clear large outliers (which is why the x axis goes to 6), while delta3 (first wrist axis) occasionally goes a little over 2 radians. delta1 (shoulder) and delta2 (elbow) also occasionally go above 1 radian.
+```{r distribution-by-joint, message=FALSE, warning=FALSE}
+deltas %>%
+  ggplot +
+    stat_ecdf(aes(x = abs(delta), color = project)) +
+    facet_wrap(~name, scales = "free") +
+    cdf_theme() + ylabel + tight_x +
+    labs(x = "abs(delta) (radians)")
+```
+
+\pagebreak
+And an even closer look, just at values over pi / 2 radians. **Note that the x axes are different, and that the wrist values above 1.57 are all really high (near 6 radians). Also note how many samples there are (few)**.
+```{r filtered-look-delta5, message=FALSE, warning=FALSE}
+deltas_zoomed <- deltas %>%
+  filter(abs(delta) > 1.57)
+deltas_zoomed %>% summarize(data_points = n())
+deltas_zoomed %>%
+  ggplot +
+    stat_ecdf(aes(x = abs(delta), color = project)) +
+    facet_grid(~ name, scales = "free") +
+    cdf_theme() + ylabel + tight_x +
+    labs(x = "abs(delta) (radians)")
+```
+
+\pagebreak
+Now let's look at the maximum joint delta on any joint, for these series of grasp pairs. **The red-outlines plot is the only transition that is currently checked for large motions, via MAX_PRE_GRASP_DIFF, which is 1 radian right now.** It seems pretty clear that other transitions should also be checked.
+```{r max-joint-delta, message=FALSE, warning=FALSE, fig.height=6}
+max_deltas %>%
+  ggplot +
+    stat_ecdf(aes(x = max_delta, color = project)) +
+    facet_grid(pair ~ .) +
+    cdf_theme() + ylabel +
+    rectangle_current(max_deltas) +
+    labs(x = "max_delta (radians)")
+```
+
+\pagebreak
+Again but with a starkly limited x axis for better visibility (1.57 ~= pi / 2). We can clearly see that SuctionPreGrasp:SuctionGrasp and SuctionPreGrasp0:SuctionGrasp0 account for the most extreme motions. These represent the same motions, since the 1.22 FSA switched from one to the other. This makes sense, because when we first go into a tote we orient ourselves, and future motions can likely work near that new orientation. As a reminder, the red-outlines plot is the only transition that is currently checked for large motions.
+```{r max-joint-delta-zoomed, message=FALSE, warning=FALSE, fig.height=6}
+max_deltas %>%
+  ggplot +
+    stat_ecdf(aes(x = max_delta, color = project)) +
+    facet_grid(pair ~ .) +
+    xlim(0, 1.57) +
+    cdf_theme() + ylabel +
+    rectangle_current(max_deltas) +
+    labs(x = "max_delta (radians)")
+```
+
+\pagebreak
+Let's take a look at the values above that cutoff (1.57 ~= pi / 2). **Note that the number of values here is very small compared to the full dataset, which is ~530,000 measurements.** It's also notable that while PreG:G / PreG0:G0 dominate the occurrences, it is **possible** for the big flip to occur in other pose pairs. As a reminder, the red-outlines plot is the only transition that is currently checked for large motions.
+```{r max-joint-delta-upper, message=FALSE, warning=FALSE, fig.height=6}
+over_cutoff <- max_deltas %>%
+  filter(max_delta > 1.57)
+over_cutoff %>% summarize(data_points = n())
+over_cutoff %>%
+  ggplot +
+    stat_ecdf(aes(x = max_delta, color = project)) +
+    facet_grid(pair ~ .) +
+    cdf_theme() + ylabel +
+    rectangle_current(max_deltas) +
+    labs(x = "max_delta (radians)")
+```
+
+\pagebreak
+Finally, this is just to fully sate your curiosity. You can check the joint deltas for any combination of joint/pose pair. **Note that the x axes are different again**, in order to better see the shapes. As expected, PreG:G / PreG0:G0 dominate the larger movements, and delta1/delta2/delta3 contain the most robust "middle values", in the 0.5-2 range. As we saw earlier, the delta5 wrist values are pretty small and just have a few values that really jump up to near 6. As a reminder, the red-outlines row is the only transition that is currently checked for large motions.
+```{r full-view, message=FALSE, warning=FALSE, fig.height=6}
+deltas %>%
+  ggplot +
+    stat_ecdf(aes(x = abs(delta))) +
+    facet_grid(pair ~ name, scale = "free") +
+    cdf_theme() + ylabel + tight_x +
+    rectangle_current(deltas) +
+    labs(x = "abs(delta) (radians)")
+```
+
+\pagebreak
+Final confirmation, when we look at delta values above 1.5 they generally happen in PreG:G / PreG0:G0 and on delta1/delta2/delta3. Once again, look at the sample size. As a reminder, the red-outlines plot is the only transition that is currently checked for large motions.
+```{r full-view-cutoff, message=FALSE, warning=FALSE, fig.height=6}
+deltas_zoomed %>% summarize(data_points = n())
+deltas_zoomed %>%
+  ggplot +
+    stat_ecdf(aes(x = abs(delta))) +
+    facet_grid(pair ~ name, scale = "free") +
+    cdf_theme() + ylabel + tight_x +
+    rectangle_current(deltas_zoomed) +
+    labs(x = "abs(delta) (radians)")
+```

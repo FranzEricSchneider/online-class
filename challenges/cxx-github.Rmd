@@ -1,0 +1,111 @@
+---
+title: "Github Usage"
+author: "(Your name here)"
+date: 2020-
+output:
+  github_document:
+    toc: true
+---
+
+```{r message=FALSE, warning=FALSE}
+# Libraries
+library(chron)
+library(tidyverse)
+```
+
+```{r make-function, message=FALSE, warning=FALSE}
+# Right now this appears to take a vector and only process the first element.
+# What we'd want is a vector -> vector process. Working around this for now.
+group_names <- function(name) {
+  if (name < "J") {
+    return("A")
+  } else if (name < "O") {
+    return("B")
+  } else {
+    return("C")
+  }
+}
+```
+
+```{r read-csv, message=FALSE, warning=FALSE}
+commit_history_parsed <- read.csv("~/Desktop/commit_history_parsed.csv") %>%
+  mutate(
+    date = as.Date(raw_date),
+    time = chron(times = raw_time),
+    len_message = str_length(message),
+  ) %>%
+  group_by(name) %>%
+  mutate(
+    group = group_names(name),
+  ) %>%
+  ungroup
+commit_history_parsed %>% glimpse
+```
+
+```{r make_summary, message=FALSE, warning=FALSE}
+summary <- commit_history_parsed %>%
+  group_by(name) %>%
+  summarise(n = n()) %>%
+  arrange(desc(n))
+summary
+```
+
+```{r bar, message=FALSE, warning=FALSE}
+summary %>%
+  ggplot +
+  geom_col(aes(x = reorder(name, -n), y = n)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+```{r add-frequency, message=FALSE, warning=FALSE}
+frequency_history <- commit_history_parsed %>%
+  group_by(name, date) %>%
+  summarize(commits_in_day = n()) %>%
+  ungroup
+frequency_history
+```
+
+```{r plot-frequency, message=FALSE, warning=FALSE}
+frequency_history %>%
+  ggplot +
+  geom_smooth(aes(x = date, y = commits_in_day, color = name), se=F)
+```
+
+```{r plot-message, message=FALSE, warning=FALSE}
+commit_history_parsed %>%
+  ggplot +
+  geom_smooth(aes(x = date, y = len_message))
+
+commit_history_parsed %>%
+  ggplot +
+  geom_smooth(aes(x = time, y = len_message))
+
+commit_history_parsed %>%
+  ggplot +
+  geom_density(aes(x = time))
+```
+
+```{r plot-message-named, message=FALSE, warning=FALSE}
+commit_history_parsed %>%
+  ggplot +
+  geom_line(aes(x = date, y = len_message)) +
+  facet_wrap(~ name)
+
+commit_history_parsed %>%
+  ggplot +
+  geom_line(aes(x = time, y = len_message)) +
+  facet_wrap(~ name)
+
+commit_history_parsed %>%
+  filter(group == "A") %>%
+  ggplot +
+  geom_density(aes(x = time, color = name))
+commit_history_parsed %>%
+  filter(group == "B") %>%
+  ggplot +
+  geom_density(aes(x = time, color = name))
+commit_history_parsed %>%
+  filter(group == "C") %>%
+  ggplot +
+  geom_density(aes(x = time, color = name))
+```

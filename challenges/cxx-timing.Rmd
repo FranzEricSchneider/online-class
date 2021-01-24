@@ -1,5 +1,5 @@
 ---
-title: "Timing Data"
+title: "Timing Data Recursive"
 author: "Eric"
 date: 2020-08-20
 output:
@@ -13,7 +13,7 @@ library(tidyverse)
 
 To make time_modes.csv I took data from 3 full log files on 021 (ABBA, ~31G each)
 ```{r read-csv, message=FALSE, warning=FALSE}
-timing <- read.csv("~/Desktop/time_modes.csv") %>%
+timing <- read.csv("~/Desktop/time_modes_recursive.csv") %>%
   group_by(mode) %>%
   mutate(appearances = n()) %>%
   ungroup %>%
@@ -47,5 +47,5 @@ timing %>%
   filter(rank <= 12) %>%
   ggplot +
   geom_density(aes(x = time_s, color = mode)) +
-  facet_wrap(~ mode + appearances, scales = "free")
+  facet_wrap(~ appearances + mode, scales = "free")
 ```
